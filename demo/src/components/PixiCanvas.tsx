@@ -13,14 +13,33 @@ interface AnimItem {
 interface PixiGridViewProps {
   animations: AnimItem[];
   speed: number;
+  resolution: number;
 }
 
 // Global Texture Cache (simple URL-based)
-const textureCache: Record<string, PIXI.Texture[]> = {};
+const textureCache: Map<string, PIXI.Texture[]> = new Map();
 
 async function loadTexturesForAnim(id: string, imageNames: string[]): Promise<PIXI.Texture[]> {
-  if (textureCache[id]) return textureCache[id];
+  if (textureCache.has(id)) return textureCache.get(id)!;
   
+  // Memory Safety: Strict 40-item limit
+  if (textureCache.size >= 40) {
+    const keys = Array.from(textureCache.keys());
+    console.log(`[Memory Manager] Evicting 20 old animations from cache... (Current size: ${textureCache.size})`);
+    
+    // Evict 20 to make room for a new page of 20
+    for (let i = 0; i < 20; i++) {
+       const key = keys[i];
+       const textures = textureCache.get(key);
+       if (textures) {
+         textures.forEach(t => {
+           try { t.destroy(true); } catch(e) {} // Force GPU cleanup
+         });
+       }
+       textureCache.delete(key);
+    }
+  }
+
   const textures: PIXI.Texture[] = [];
   const promises = imageNames.map(fileName => {
     const url = `/api/assets/${id}/${fileName}`;
@@ -38,11 +57,11 @@ async function loadTexturesForAnim(id: string, imageNames: string[]): Promise<PI
     if (res.status === 'fulfilled') textures.push(res.value);
   });
   
-  textureCache[id] = textures;
+  textureCache.set(id, textures);
   return textures;
 }
 
-export default function PixiGridView({ animations, speed }: PixiGridViewProps) {
+export default function PixiGridView({ animations, speed, resolution }: PixiGridViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const spritesRef = useRef<Map<string, PIXI.AnimatedSprite>>(new Map());
@@ -60,13 +79,23 @@ export default function PixiGridView({ animations, speed }: PixiGridViewProps) {
       app = new PIXI.Application();
       await app.init({
         backgroundAlpha: 0,
-        antialias: true,
-        resolution: 1,
+        antialias: false,
+        resolution: resolution, // Dynamic resolution
+        roundPixels: true,
       });
       
       if (isDestroyed) {
         try { app.destroy(true, { children: true, texture: false }); } catch(e) {}
         return;
+      }
+
+      // Ensure canvas covers view perfectly without stretching
+      if (app.canvas) {
+        app.canvas.style.width = '100%';
+        app.canvas.style.height = '100%';
+        app.canvas.style.position = 'absolute';
+        app.canvas.style.top = '0';
+        app.canvas.style.left = '0';
       }
 
       appRef.current = app;
@@ -110,12 +139,13 @@ export default function PixiGridView({ animations, speed }: PixiGridViewProps) {
       if (app) {
         if ((app as any)._cleanup) (app as any)._cleanup();
         appRef.current = null;
+        spritesRef.current.clear();
         try {
           app.destroy(true, { children: true, texture: false });
         } catch (e) {}
       }
     };
-  }, []);
+  }, [resolution]);
 
   // Sync Sprites (Only when ready)
   useEffect(() => {
@@ -159,7 +189,7 @@ export default function PixiGridView({ animations, speed }: PixiGridViewProps) {
     };
 
     loadAll();
-  }, [animations, speed, isReady]);
+  }, [animations, speed, isReady, resolution]);
 
   return (
     <>

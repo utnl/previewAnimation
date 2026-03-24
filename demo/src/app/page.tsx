@@ -16,6 +16,7 @@ const ITEMS_PER_PAGE = 20;
 export default function Home() {
   const [animations, setAnimations] = useState<AnimationSet[]>([]);
   const [speed, setSpeed] = useState(0.5);
+  const [resolution, setResolution] = useState(0.25); // Default to low for performance
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
@@ -60,19 +61,34 @@ export default function Home() {
           <p className="text-white/40 text-sm font-medium uppercase tracking-[0.2em]">Visual Grid Preview</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-6">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Quality Selector */}
+          <div className="flex items-center gap-3 glass-card px-5 py-3 rounded-2xl">
+             <label className="text-[10px] text-white/30 uppercase font-black">Quality</label>
+             <select 
+               value={resolution}
+               onChange={(e) => setResolution(parseFloat(e.target.value))}
+               className="bg-transparent text-xs font-black text-indigo-400 outline-hidden cursor-pointer"
+             >
+               <option value={0.25} className="bg-slate-900 border-none">0.25x</option>
+               <option value={0.5} className="bg-slate-900 border-none">0.50x</option>
+               <option value={0.75} className="bg-slate-900 border-none">0.75x</option>
+               <option value={1.0} className="bg-slate-900 border-none">1.00x</option>
+             </select>
+          </div>
+
           <div className="flex items-center gap-4 glass-card px-6 py-3 rounded-2xl">
-             <label className="text-[10px] text-white/30 uppercase font-black">Global FPS</label>
+             <label className="text-[10px] text-white/30 uppercase font-black">Speed</label>
              <input 
                 type="range" min="0.1" max="2" step="0.1" value={speed} 
                 onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                className="w-32 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                className="w-24 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
              />
              <span className="text-[10px] font-mono text-indigo-400">{(speed * 60).toFixed(0)}</span>
           </div>
           
-          <div className="px-4 py-2 glass-card rounded-xl text-xs font-bold text-white/50 tracking-widest border border-white/5">
-             {animations.length} ASSETS • PAGE {currentPage}/{totalPages || 1}
+          <div className="hidden lg:block px-4 py-2 glass-card rounded-xl text-[10px] font-bold text-white/40 tracking-widest border border-white/5 uppercase">
+             {animations.length} Assets • Page {currentPage}/{totalPages || 1}
           </div>
         </div>
       </div>
@@ -87,7 +103,7 @@ export default function Home() {
              </div>
           </div>
         ) : (
-          <PixiCanvas animations={paginatedItems} speed={speed} />
+          <PixiCanvas key={resolution} animations={paginatedItems} speed={speed} resolution={resolution} />
         )}
 
         {/* Empty State */}
@@ -99,34 +115,72 @@ export default function Home() {
 
         {/* Pagination Footer */}
         {totalPages > 1 && (
-          <div className="mt-12 flex justify-center items-center gap-6">
-            <button 
-              onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo(0,0); }}
-              disabled={currentPage === 1}
-              className="px-8 py-3 rounded-2xl bg-white/5 hover:bg-white/10 disabled:opacity-10 transition-all text-xs font-black tracking-widest"
-            >
-              PREVIOUS
-            </button>
-            <div className="flex gap-2">
-               {[...Array(totalPages)].map((_, i) => (
-                 <button 
-                  key={i}
-                  onClick={() => { setCurrentPage(i + 1); window.scrollTo(0,0); }}
-                  className={`w-10 h-10 rounded-xl transition-all text-[10px] font-bold ${
-                    currentPage === i + 1 ? 'bg-indigo-500 shadow-lg shadow-indigo-500/30' : 'bg-white/5 hover:bg-white/10'
-                  }`}
-                 >
-                   {i + 1}
-                 </button>
-               ))}
+          <div className="mt-12 flex flex-col items-center gap-8">
+            <div className="flex items-center gap-4">
+               <button 
+                onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo(0,0); }}
+                disabled={currentPage === 1}
+                className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-10 transition-all text-[10px] font-black"
+               >
+                 PREV
+               </button>
+
+               <div className="flex items-center gap-2">
+                  {/* Current Page Input */}
+                  <div className="flex items-center gap-2 glass-card px-4 py-2 rounded-xl border border-white/5">
+                    <span className="text-[10px] text-white/30 uppercase font-bold">Page</span>
+                    <input 
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={currentPage}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          setCurrentPage(Math.min(totalPages, Math.max(1, val)));
+                        }
+                      }}
+                      className="w-12 bg-transparent text-center text-sm font-black text-indigo-400 focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-[10px] text-white/30 uppercase font-bold">of {totalPages}</span>
+                  </div>
+               </div>
+
+               <button 
+                onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo(0,0); }}
+                disabled={currentPage === totalPages}
+                className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-10 transition-all text-[10px] font-black"
+               >
+                 NEXT
+               </button>
             </div>
-            <button 
-              onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo(0,0); }}
-              disabled={currentPage === totalPages}
-              className="px-8 py-3 rounded-2xl bg-white/5 hover:bg-white/10 disabled:opacity-10 transition-all text-xs font-black tracking-widest"
-            >
-              NEXT
-            </button>
+
+            {/* Quick Select Bubbles */}
+            <div className="flex flex-wrap justify-center gap-2 max-w-2xl px-8">
+               {[...Array(totalPages)].map((_, i) => {
+                 const page = i + 1;
+                 // Only show first, last, and around current
+                 const isNear = Math.abs(page - currentPage) <= 1;
+                 const isEdge = page === 1 || page === totalPages;
+                 
+                 if (!isNear && !isEdge) {
+                   if (page === 2 || page === totalPages - 1) return <span key={page} className="text-white/10">...</span>;
+                   return null;
+                 }
+
+                 return (
+                  <button 
+                   key={page}
+                   onClick={() => { setCurrentPage(page); window.scrollTo(0,0); }}
+                   className={`w-9 h-9 rounded-xl transition-all text-xs font-bold ${
+                     currentPage === page ? 'bg-indigo-500 shadow-lg shadow-indigo-500/30' : 'bg-white/5 hover:bg-white/10'
+                   }`}
+                  >
+                    {page}
+                  </button>
+                 );
+               })}
+            </div>
           </div>
         )}
       </div>

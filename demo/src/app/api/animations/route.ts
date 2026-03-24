@@ -19,10 +19,11 @@ export async function GET() {
         // Get all .png files and sort them alphabetically
         const files = fs.readdirSync(folderPath)
           .filter(f => f.toLowerCase().endsWith('.png'))
-          .sort();
+          .sort()
+          .filter((_, i) => i % 2 === 0); // Skip odd frames (Fast Preview)
         
-        // Return first 100 frames to keep UI snappy
-        const sequence = files.slice(0, 100);
+        // Return first 30 frames (Enough for quick glance)
+        const sequence = files.slice(0, 30);
 
         return {
           id: dirent.name,
